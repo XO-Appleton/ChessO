@@ -15,6 +15,10 @@ class Game:
             ['wP','wP','wP','wP','wP','wP','wP','wP'],
             ['wR','wN','wB','wQ','wK','wB','wN','wR']
         ]
+
+        self.move_funcs = {'P': self.get_pawn_move, 'R':self.get_rook_move, 'N':self.get_knight_move,
+            'B':self.get_bishop_move, 'Q':self.get_queen_move, 'K':self.get_king_move} # stores function names for moving a piece
+
         self.white_to_move = True
         self.move_log = [] # list of Moves
 
@@ -35,23 +39,145 @@ class Game:
         return self.get_all_moves()
 
     def get_all_moves(self):
-        moves = [Move((6,4),(4,4),self.board)]
+        moves = []
         for r in range(len(self.board)):
             for c in range(len(self.board[r])):
                 (turn, piece) = tuple(self.board[r][c])
-                if self.white_to_move and turn == 'w':
-                    if piece == 'P':
-                        moves.append(self.get_pawn_move(r, c))
-                    elif piece == 'R':
-                        moves.append(self.get_rook_move(r, c))
+                if self.white_to_move and turn == 'w' or not self.white_to_move and turn == 'b':
+                    self.move_funcs[piece](r, c, moves)
         return moves
         
 
-    def get_pawn_move(self, r, c):
-        pass
+    def get_pawn_move(self, r, c, moves):
+        # white pawn moves
+        if self.white_to_move: 
+            if self.board[r-1][c] == '--':
+                moves.append(Move((r,c), (r-1,c),self.board))
+                if r == 6 and self.board[r-2][c] == '--':
+                    moves.append(Move((r,c),(r-2,c),self.board))
+            if c-1 >= 0 and self.board[r-1][c-1][0] == 'b':
+                moves.append(Move((r,c),(r-1,c-1),self.board))
+            if c+1 < len(self.board[r]) and self.board[r-1][c+1][0] == 'b':
+                moves.append(Move((r,c),(r-1,c+1),self.board))
 
-    def get_rook_move(self, r, c):
-        pass
+        # black pawn moves
+        else:   
+            if self.board[r+1][c] == '--':
+                moves.append(Move((r,c), (r+1,c),self.board))
+                if r == 1 and self.board[r+2][c] == '--':
+                    moves.append(Move((r,c),(r+2,c),self.board))
+            if c-1 >= 0 and self.board[r+1][c-1][0] == 'w':
+                moves.append(Move((r,c),(r+1,c-1),self.board))
+            if c+1 < len(self.board[r]) and self.board[r+1][c+1][0] == 'w':
+                moves.append(Move((r,c),(r+1,c+1),self.board))
+
+    def get_rook_move(self, r, c, moves):
+        i, j = c-1, c+1
+        # squares to the left
+        while i >= 0:
+            if self.board[r][i] == '--':
+                moves.append(Move((r,c),(r,i),self.board))
+            else:
+                if self.board[r][i][0] != self.board[r][c][0]:
+                    moves.append(Move((r,c),(r,i),self.board))
+                break
+            i -= 1 
+        # sqares to the right
+        while j < len(self.board[r]):
+            if self.board[r][j] == '--':
+                moves.append(Move((r,c),(r,j),self.board))
+            else:
+                if self.board[r][j][0] != self.board[r][c][0]:
+                    moves.append(Move((r,c),(r,j),self.board))
+                break
+            j += 1
+
+        i, j = r-1, r+1
+        # squares above
+        while i >= 0:
+            if self.board[i][c] == '--':
+                moves.append(Move((r,c),(i,c),self.board))
+            else:
+                if self.board[i][c][0] != self.board[r][c][0]:
+                    moves.append(Move((r,c),(i,c),self.board))
+                break
+            i -= 1 
+        # sqares below
+        while j < len(self.board):
+            if self.board[j][c] == '--':
+                moves.append(Move((r,c),(j,c),self.board))
+            else:
+                if self.board[j][c][0] != self.board[r][c][0]:
+                    moves.append(Move((r,c),(j,c),self.board))
+                break
+            j += 1
+
+    def get_knight_move(self, r, c, moves):
+        directions = [(-2,1),(-1,2),(1,2),(2,1),(2,-1),(1,-2),(-1,-2),(-2,-1)]
+        for (r_diff, c_diff) in directions:
+            if r + r_diff >= 0 and r + r_diff < len(self.board) and c + c_diff >= 0 and c + c_diff < len(self.board[r+r_diff]):
+                if self.board[r+r_diff][c+c_diff][0] != self.board[r][c][0]:
+                    moves.append(Move((r,c),(r+r_diff,c+c_diff),self.board))
+
+    def get_bishop_move(self, r, c, moves):
+        # squares to the upper left
+        i, j = r-1, c-1
+        while i >= 0 and j>=0:
+            if self.board[i][j] == '--':
+                moves.append(Move((r,c),(i,j),self.board))
+            else:
+                if self.board[i][j][0] != self.board[r][c][0]:
+                    moves.append(Move((r,c),(i,j),self.board))
+                break
+            i -= 1
+            j -= 1 
+
+        # squares to the upper right
+        i, j = r-1, c+1
+        while i >= 0 and j < len(self.board[i]):
+            if self.board[i][j] == '--':
+                moves.append(Move((r,c),(i,j),self.board))
+            else:
+                if self.board[i][j][0] != self.board[r][c][0]:
+                    moves.append(Move((r,c),(i,j),self.board))
+                break
+            i -= 1
+            j += 1 
+
+        # squares to the bottom right
+        i, j = r+1, c+1
+        while i < len(self.board) and j < len(self.board[i]):
+            if self.board[i][j] == '--':
+                moves.append(Move((r,c),(i,j),self.board))
+            else:
+                if self.board[i][j][0] != self.board[r][c][0]:
+                    moves.append(Move((r,c),(i,j),self.board))
+                break
+            i += 1
+            j += 1 
+
+        # squares to the bottom left
+        i, j = r+1, c-1
+        while i < len(self.board) and j >= 0:
+            if self.board[i][j] == '--':
+                moves.append(Move((r,c),(i,j),self.board))
+            else:
+                if self.board[i][j][0] != self.board[r][c][0]:
+                    moves.append(Move((r,c),(i,j),self.board))
+                break
+            i += 1
+            j -= 1 
+
+    def get_queen_move(self, r, c, moves):
+        self.get_rook_move(r, c, moves)
+        self.get_bishop_move(r, c, moves)
+
+    def get_king_move(self, r, c, moves):
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if r+i >= 0 and r+i < len(self.board) and c+j >= 0 and c+j < len(self.board[r+i]):
+                    if self.board[r+i][c+j][0] != self.board[r][c][0]:
+                        moves.append(Move((r,c),(r+i,c+j),self.board))
 
 class Move:
     '''Stores the information about a single move'''

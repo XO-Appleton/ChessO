@@ -54,8 +54,10 @@ def main():
                 if len(player_clicks) == 2: # After the second click
                     move = ChessOEngine.Move(player_clicks[0], player_clicks[1], game.board)
                     print(move.get_chess_notation())
+                    print(move in valid_moves, game.white_to_move)
                     if move in valid_moves:
                         game.make_move(move)
+                        valid_moves = game.get_valid_moves()
                     sq_selected = ()
                     player_clicks = []
 
