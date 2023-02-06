@@ -78,9 +78,12 @@ class Game:
                 end_r = r + d[0]*i
                 end_c = c + d[1]*i
                 if 0 <= end_r < len(self.board) and 0 <= end_c < len(self.board[end_r]):
-                    if self.board[end_r][end_c][0] != self.board[r][c][0]:
+                    if self.board[end_r][end_c][0] == self.board[r][c][0]:
+                        break
+                    elif self.board[end_r][end_c] == '--':
                         moves.append(Move((r,c),(end_r,end_c),self.board))
                     else:
+                        moves.append(Move((r,c),(end_r,end_c),self.board))
                         break
                 else:
                     break
@@ -99,9 +102,12 @@ class Game:
                 end_r = r + d[0]*i
                 end_c = c + d[1]*i
                 if 0 <= end_r < len(self.board) and 0 <= end_c < len(self.board[end_r]):
-                    if self.board[end_r][end_c][0] != self.board[r][c][0]:
+                    if self.board[end_r][end_c][0] == self.board[r][c][0]:
+                        break
+                    elif self.board[end_r][end_c] == '--':
                         moves.append(Move((r,c),(end_r,end_c),self.board))
                     else:
+                        moves.append(Move((r,c),(end_r,end_c),self.board))
                         break
                 else:
                     break
