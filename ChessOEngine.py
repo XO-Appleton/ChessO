@@ -72,45 +72,18 @@ class Game:
                 moves.append(Move((r,c),(r+1,c+1),self.board))
 
     def get_rook_move(self, r, c, moves):
-        i, j = c-1, c+1
-        # squares to the left
-        while i >= 0:
-            if self.board[r][i] == '--':
-                moves.append(Move((r,c),(r,i),self.board))
-            else:
-                if self.board[r][i][0] != self.board[r][c][0]:
-                    moves.append(Move((r,c),(r,i),self.board))
-                break
-            i -= 1 
-        # sqares to the right
-        while j < len(self.board[r]):
-            if self.board[r][j] == '--':
-                moves.append(Move((r,c),(r,j),self.board))
-            else:
-                if self.board[r][j][0] != self.board[r][c][0]:
-                    moves.append(Move((r,c),(r,j),self.board))
-                break
-            j += 1
-
-        i, j = r-1, r+1
-        # squares above
-        while i >= 0:
-            if self.board[i][c] == '--':
-                moves.append(Move((r,c),(i,c),self.board))
-            else:
-                if self.board[i][c][0] != self.board[r][c][0]:
-                    moves.append(Move((r,c),(i,c),self.board))
-                break
-            i -= 1 
-        # sqares below
-        while j < len(self.board):
-            if self.board[j][c] == '--':
-                moves.append(Move((r,c),(j,c),self.board))
-            else:
-                if self.board[j][c][0] != self.board[r][c][0]:
-                    moves.append(Move((r,c),(j,c),self.board))
-                break
-            j += 1
+        directions = [(0,1),(1,0),(0,-1),(-1,0)]
+        for d in directions:
+            for i in range(1,8):
+                end_r = r + d[0]*i
+                end_c = c + d[1]*i
+                if 0 <= end_r < len(self.board) and 0 <= end_c < len(self.board[end_r]):
+                    if self.board[end_r][end_c][0] != self.board[r][c][0]:
+                        moves.append(Move((r,c),(end_r,end_c),self.board))
+                    else:
+                        break
+                else:
+                    break
 
     def get_knight_move(self, r, c, moves):
         directions = [(-2,1),(-1,2),(1,2),(2,1),(2,-1),(1,-2),(-1,-2),(-2,-1)]
@@ -120,53 +93,18 @@ class Game:
                     moves.append(Move((r,c),(r+r_diff,c+c_diff),self.board))
 
     def get_bishop_move(self, r, c, moves):
-        # squares to the upper left
-        i, j = r-1, c-1
-        while i >= 0 and j>=0:
-            if self.board[i][j] == '--':
-                moves.append(Move((r,c),(i,j),self.board))
-            else:
-                if self.board[i][j][0] != self.board[r][c][0]:
-                    moves.append(Move((r,c),(i,j),self.board))
-                break
-            i -= 1
-            j -= 1 
-
-        # squares to the upper right
-        i, j = r-1, c+1
-        while i >= 0 and j < len(self.board[i]):
-            if self.board[i][j] == '--':
-                moves.append(Move((r,c),(i,j),self.board))
-            else:
-                if self.board[i][j][0] != self.board[r][c][0]:
-                    moves.append(Move((r,c),(i,j),self.board))
-                break
-            i -= 1
-            j += 1 
-
-        # squares to the bottom right
-        i, j = r+1, c+1
-        while i < len(self.board) and j < len(self.board[i]):
-            if self.board[i][j] == '--':
-                moves.append(Move((r,c),(i,j),self.board))
-            else:
-                if self.board[i][j][0] != self.board[r][c][0]:
-                    moves.append(Move((r,c),(i,j),self.board))
-                break
-            i += 1
-            j += 1 
-
-        # squares to the bottom left
-        i, j = r+1, c-1
-        while i < len(self.board) and j >= 0:
-            if self.board[i][j] == '--':
-                moves.append(Move((r,c),(i,j),self.board))
-            else:
-                if self.board[i][j][0] != self.board[r][c][0]:
-                    moves.append(Move((r,c),(i,j),self.board))
-                break
-            i += 1
-            j -= 1 
+        directions = [(-1,1),(1,1),(1,-1),(-1,-1)]
+        for d in directions:
+            for i in range(1,8):
+                end_r = r + d[0]*i
+                end_c = c + d[1]*i
+                if 0 <= end_r < len(self.board) and 0 <= end_c < len(self.board[end_r]):
+                    if self.board[end_r][end_c][0] != self.board[r][c][0]:
+                        moves.append(Move((r,c),(end_r,end_c),self.board))
+                    else:
+                        break
+                else:
+                    break
 
     def get_queen_move(self, r, c, moves):
         self.get_rook_move(r, c, moves)
