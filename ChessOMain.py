@@ -53,38 +53,45 @@ def main():
 
                 if len(player_clicks) == 2: # After the second click
                     move = ChessOEngine.Move(player_clicks[0], player_clicks[1], game.board)
-                    print(move.get_chess_notation())
-                    print(move in valid_moves, game.white_to_move)
+                    print(move.get_chess_notation(),move in valid_moves, game.white_to_move)
                     if move in valid_moves:
                         game.make_move(move)
                         valid_moves = game.get_valid_moves()
-                    sq_selected = ()
-                    player_clicks = []
+                        sq_selected = ()
+                        player_clicks = []
+                    else:
+                        player_clicks = [sq_selected]
 
             # key handler
             elif e.type == p.KEYDOWN:
                 if e.key == p.K_z:
                     game.undo_move()
+                    valid_moves = game.get_valid_moves()
+                    sq_selected = ()
+                    player_clicks = []
 
-        draw_game(screen,game)
+        draw_game(screen,game,sq_selected)
         clock.tick(MAX_FPS) # ticks the clock at FPS
         p.display.flip()
 
-def draw_game(screen, game):
+def draw_game(screen, game, sq_selected):
     '''
     Responsible for all graphics of the current game
     '''
-    draw_board(screen)
+    draw_board(screen, sq_selected)
     draw_pieces(screen, game.board)
 
-def draw_board(screen):
+def draw_board(screen, sq_selected):
     '''
     Draw the sqares on the board
     '''
-    colors = [p.Color('white'), p.Color('gray')]
+    colors = [p.Color('white'), p.Color('gray'), p.Color('yellow')]
     for r in range(DIMENSION):
         for c in range(DIMENSION):
-            color = colors[(r+c)%2]
+            if sq_selected and (r,c) == sq_selected:
+                color = colors[2]
+            else:
+                color = colors[(r+c)%2]
             p.draw.rect(screen, color, p.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
 def draw_pieces(screen, board):

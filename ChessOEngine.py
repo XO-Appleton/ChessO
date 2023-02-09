@@ -22,11 +22,22 @@ class Game:
         self.white_to_move = True
         self.move_log = [] # list of Moves
 
+        self.white_king_pos = (7,4)
+        self.black_king_pos = (0,4)
+
+        self.checkmated = False
+        self.stalemate = False
+
     def make_move(self, move):
         self.board[move.start_row][move.start_col] = '--'
         self.board[move.end_row][move.end_col] = move.piece_moved
         self.move_log.append(move)
         self.white_to_move = not self.white_to_move
+        # update the king's pos if they move
+        if move.piece_moved == 'wK':
+            self.white_king_pos = (move.end_row, move.end_col)
+        elif move.piece_moved == 'bK':
+            self.black_king_pos = (move.end_row, move.end_col)
 
     def undo_move(self):
         if self.move_log:
@@ -34,9 +45,43 @@ class Game:
             self.board[move.end_row][move.end_col] = move.piece_captured
             self.board[move.start_row][move.start_col] = move.piece_moved
             self.white_to_move = not self.white_to_move
+            # update the king's pos if they moved
+            if move.piece_moved == 'wK':
+                self.white_king_pos = (move.start_row, move.start_col)
+            elif move.piece_moved == 'bK':
+                self.black_king_pos = (move.start_row, move.start_col)
 
     def get_valid_moves(self):
-        return self.get_all_moves()
+        # return all moves that does not put the king in check
+        moves = self.get_all_moves()
+        j = 0
+        for i in range(len(moves)):
+            self.make_move(moves[i])
+            self.white_to_move = not self.white_to_move
+            if not self.in_check():
+                moves[j] = moves[i]
+                j += 1
+            self.undo_move()
+            self.white_to_move = not self.white_to_move
+
+        if not moves:
+            if self.in_check(): self.checkmated = True
+            else: self.stalemate = True
+
+        return moves[:j]
+            
+
+    def in_check(self):
+        return self.sq_attacked(self.white_king_pos) if self.white_to_move else self.sq_attacked(self.black_king_pos)
+        
+    def sq_attacked(self, sq):
+        self.white_to_move = not self.white_to_move
+        oppo_moves = self.get_all_moves()
+        self.white_to_move = not self.white_to_move
+        for move in oppo_moves:
+            if move.end_row == sq[0] and move.end_col == sq[1]:
+                return True
+        return False
 
     def get_all_moves(self):
         moves = []
