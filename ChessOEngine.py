@@ -31,6 +31,11 @@ class Game:
     def make_move(self, move):
         self.board[move.start_row][move.start_col] = '--'
         self.board[move.end_row][move.end_col] = move.piece_moved
+        # En Passant
+        if move.piece_moved[1] == 'P' and move.end_col != move.start_col and move.piece_captured == '--':
+            self.board[move.start_row][move.end_col] = '--'
+            move.is_enpassant = True
+
         self.move_log.append(move)
         self.white_to_move = not self.white_to_move
         # update the king's pos if they move
@@ -39,11 +44,23 @@ class Game:
         elif move.piece_moved == 'bK':
             self.black_king_pos = (move.end_row, move.end_col)
 
+        # Pawn Promotion
+        if move.piece_moved == 'wP' and move.end_row == 0:
+            self.board[move.end_row][move.end_col] = 'wQ'
+        elif move.piece_moved == 'bP' and move.end_row == 7:
+            self.board[move.end_row][move.end_col] = 'bQ'
+
     def undo_move(self):
         if self.move_log:
             move = self.move_log.pop()
             self.board[move.end_row][move.end_col] = move.piece_captured
             self.board[move.start_row][move.start_col] = move.piece_moved
+
+            # undo enpassant
+            if move.is_enpassant:
+                captured_color = 'b' if move.piece_moved[0] == 'w' else 'w'
+                self.board[move.start_row][move.end_col] = captured_color + 'P'
+
             self.white_to_move = not self.white_to_move
             # update the king's pos if they moved
             if move.piece_moved == 'wK':
@@ -104,7 +121,6 @@ class Game:
                 moves.append(Move((r,c),(r-1,c-1),self.board))
             if c+1 < len(self.board[r]) and self.board[r-1][c+1][0] == 'b':
                 moves.append(Move((r,c),(r-1,c+1),self.board))
-
         # black pawn moves
         else:   
             if self.board[r+1][c] == '--':
@@ -115,6 +131,16 @@ class Game:
                 moves.append(Move((r,c),(r+1,c-1),self.board))
             if c+1 < len(self.board[r]) and self.board[r+1][c+1][0] == 'w':
                 moves.append(Move((r,c),(r+1,c+1),self.board))
+
+        # En Passant
+        if self.move_log:
+            last_move = self.move_log[-1]
+            if last_move.piece_moved[1] == 'P' and abs(last_move.end_row - last_move.start_row) == 2:
+                if r == last_move.end_row and abs(c-last_move.end_col) == 1:
+                    end_row = r + (self.move_log[-1].start_row - r)//2
+                    end_col = self.move_log[-1].start_col
+                    moves.append(Move((r,c),(end_row, end_col), self.board))
+
 
     def get_rook_move(self, r, c, moves):
         directions = [(0,1),(1,0),(0,-1),(-1,0)]
@@ -183,6 +209,7 @@ class Move:
         self.end_col = end_sq[1]
         self.piece_moved = board[self.start_row][self.start_col]
         self.piece_captured = board[self.end_row][self.end_col]
+        self.is_enpassant = False
 
     def __eq__(self, other):
         if isinstance(other, Move):
