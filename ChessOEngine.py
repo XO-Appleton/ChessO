@@ -1,6 +1,7 @@
 '''
 This is the game engine for ChessO which initiates the chess game as well as monitoring the game.
 '''
+import math
 
 class Game:
     '''Stores the board and moves of the current game'''
@@ -22,6 +23,10 @@ class Game:
         self.white_to_move = True
         self.move_log = [] # list of Moves
 
+        # order of the first move that disables castling of the pieces
+        self.castle_piece_first_move = {'wK':math.inf, 'wQR':math.inf, 'wKR':math.inf, 
+            'bK':math.inf, 'bQR':math.inf, 'bKR':math.inf}
+
         self.white_king_pos = (7,4)
         self.black_king_pos = (0,4)
 
@@ -31,18 +36,40 @@ class Game:
     def make_move(self, move):
         self.board[move.start_row][move.start_col] = '--'
         self.board[move.end_row][move.end_col] = move.piece_moved
+        color = move.piece_moved[0]
+
+        self.move_log.append(move)
+        self.white_to_move = not self.white_to_move
+
         # En Passant
         if move.piece_moved[1] == 'P' and move.end_col != move.start_col and move.piece_captured == '--':
             self.board[move.start_row][move.end_col] = '--'
             move.is_enpassant = True
 
-        self.move_log.append(move)
-        self.white_to_move = not self.white_to_move
-        # update the king's pos if they move
-        if move.piece_moved == 'wK':
-            self.white_king_pos = (move.end_row, move.end_col)
-        elif move.piece_moved == 'bK':
-            self.black_king_pos = (move.end_row, move.end_col)
+        # Track rook first move timing
+        if move.piece_moved[1] == 'R':
+            if move.start_col == 0:
+                self.castle_piece_first_move[color+'QR'] = min(self.castle_piece_first_move[color+'QR'], len(self.move_log))
+            elif move.start_col == 7:
+                self.castle_piece_first_move[color+'KR'] = min(self.castle_piece_first_move[color+'KR'], len(self.move_log))
+
+        if move.piece_moved[1] == 'K':
+            self.castle_piece_first_move[color+'K'] = min(self.castle_piece_first_move[color+'K'], len(self.move_log))
+            # Castles
+            if move.end_col - move.start_col == 2:
+                self.board[move.start_row][7] = '--'
+                self.board[move.start_row][move.end_col-1] = color + 'R'
+                self.castle_piece_first_move[color+'KR'] = min(self.castle_piece_first_move[color+'KR'], len(self.move_log))
+            elif move.start_col - move.end_col == 2:
+                self.board[move.start_row][0] = '--'
+                self.board[move.start_row][move.end_col+1] = color + 'R'
+                self.castle_piece_first_move[color+'QR'] = min(self.castle_piece_first_move[color+'QR'], len(self.move_log))
+
+            # update the king's pos if they move
+            if color == 'w':
+                self.white_king_pos = (move.end_row, move.end_col)
+            else:
+                self.black_king_pos = (move.end_row, move.end_col)
 
         # Pawn Promotion
         if move.piece_moved == 'wP' and move.end_row == 0:
@@ -61,12 +88,30 @@ class Game:
                 captured_color = 'b' if move.piece_moved[0] == 'w' else 'w'
                 self.board[move.start_row][move.end_col] = captured_color + 'P'
 
-            self.white_to_move = not self.white_to_move
+            # undo castling
             # update the king's pos if they moved
             if move.piece_moved == 'wK':
+                if move.start_col - move.end_col == 2:
+                    self.board[move.end_row][move.end_col+1] = '--'
+                    self.board[move.end_row][0] = 'wR'
+                elif move.start_col - move.end_col == -2:
+                    self.board[move.end_row][move.end_col-1] = '--'
+                    self.board[move.end_row][7] = 'wR'
                 self.white_king_pos = (move.start_row, move.start_col)
             elif move.piece_moved == 'bK':
+                if move.start_col - move.end_col == 2:
+                    self.board[move.end_row][move.end_col+1] = '--'
+                    self.board[move.end_row][0] = 'bR'
+                elif move.start_col - move.end_col == -2:
+                    self.board[move.end_row][move.end_col-1] = '--'
+                    self.board[move.end_row][7] = 'bR'
                 self.black_king_pos = (move.start_row, move.start_col)
+            
+            # update first move timing of the castling pieces
+            for k,v in self.castle_piece_first_move.items():
+                if len(self.move_log) < v:
+                    self.castle_piece_first_move[k] = math.inf
+            self.white_to_move = not self.white_to_move
 
     def get_valid_moves(self):
         # return all moves that does not put the king in check
@@ -81,11 +126,14 @@ class Game:
             self.undo_move()
             self.white_to_move = not self.white_to_move
 
+        king_pos = self.white_king_pos if self.white_to_move else self.black_king_pos
+        castle_moves = self.get_castle_moves(king_pos[0], king_pos[1])
+
         if not moves:
             if self.in_check(): self.checkmated = True
             else: self.stalemate = True
 
-        return moves[:j]
+        return moves[:j] + castle_moves
             
 
     def in_check(self):
@@ -194,6 +242,37 @@ class Game:
                     if self.board[r+i][c+j][0] != self.board[r][c][0]:
                         moves.append(Move((r,c),(r+i,c+j),self.board))
 
+    def get_castle_moves(self, r, c):
+        castle_moves = []
+        # check if castling is available queen side or king side
+        queen_side = king_side = True
+        color = self.board[r][c][0]
+
+        # Both king or rook must have not moved
+        if len(self.move_log) < self.castle_piece_first_move[color + 'K'] and not self.in_check():
+            # Queen side
+            if len(self.move_log) < self.castle_piece_first_move[color + 'QR']:
+                # No pieces between king and rook and the sqares the king passes and lands on must not be under attack
+                for i in range(1,4):
+                    if self.board[r][c-i] != '--' or i < 3 and self.sq_attacked((r, c-i)): 
+                        queen_side = False
+                        break
+            else: queen_side = False
+            # King side
+            if len(self.move_log) < self.castle_piece_first_move[color + 'KR']:
+                # No pieces between king and rook and the sqares the king passes and lands on must not be under attack
+                for i in range(1,3):
+                    if self.board[r][c+i] != '--' or self.sq_attacked((r, c+i)): 
+                        king_side = False
+                        break
+            else: king_side = False
+        else:
+            queen_side = king_side = False
+        if queen_side: castle_moves.append(Move((r,c), (r, c-2), self.board))
+        if king_side: castle_moves.append(Move((r,c), (r, c+2), self.board))
+        #print(queen_side, king_side)
+        return castle_moves
+            
 class Move:
     '''Stores the information about a single move'''
 
@@ -220,7 +299,4 @@ class Move:
     
     def get_rank_notation(self, r, c):
         return self.cols2files[c] + self.rows2ranks[r]
-    
-    
-
 
