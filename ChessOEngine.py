@@ -113,6 +113,10 @@ class Game:
                     self.castle_piece_first_move[k] = math.inf
             self.white_to_move = not self.white_to_move
 
+            # Reset checkmate and stalemate status
+            self.checkmated = False
+            self.stalemate = False
+
     def get_valid_moves(self):
         # return all moves that does not put the king in check
         moves = self.get_all_moves()
@@ -129,11 +133,13 @@ class Game:
         king_pos = self.white_king_pos if self.white_to_move else self.black_king_pos
         castle_moves = self.get_castle_moves(king_pos[0], king_pos[1])
 
+        moves = moves[:j] + castle_moves
+
         if not moves:
             if self.in_check(): self.checkmated = True
             else: self.stalemate = True
 
-        return moves[:j] + castle_moves
+        return moves
             
 
     def in_check(self):
