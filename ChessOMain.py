@@ -4,6 +4,7 @@ This is the main program that creates the interactive user interface and receive
 
 import pygame as p
 import ChessOEngine
+import MoveFinder
 
 WIDTH = HEIGHT = 512
 DIMENSION = 8
@@ -30,6 +31,9 @@ def main():
     game = ChessOEngine.Game()
     load_images()
 
+    player1 = False # True if human playing white else False
+    player2 = False # For black
+
     valid_moves = game.get_valid_moves()
     move_made = False # Detect the frame when the move has been made
     animate = False
@@ -40,12 +44,15 @@ def main():
 
     running = True
     while running:
+        human_turn = player1 and game.white_to_move or player2 and not game.white_to_move
+
         for e in p.event.get():
+            # terminate the program
             if e.type == p.QUIT:
                 running = False
 
             # mouse handler
-            elif e.type == p.MOUSEBUTTONDOWN and not game_over:
+            elif e.type == p.MOUSEBUTTONDOWN and human_turn and not game_over:
                 location = p.mouse.get_pos() # (x,y) location of the mouse
                 col = location[0]//SQ_SIZE
                 row = location[1]//SQ_SIZE
@@ -85,6 +92,11 @@ def main():
                     sq_selected = ()
                     player_clicks = []
 
+        if not human_turn and not game_over:
+            move = MoveFinder.find_best_move(game, valid_moves)
+            game.make_move(move)
+            move_made = animate = True
+
         if move_made:
             if animate:
                 animate_move(game.move_log[-1], screen, game, clock, valid_moves, sq_selected)
@@ -93,13 +105,16 @@ def main():
 
         draw_game(screen,game,valid_moves, sq_selected)
 
+        # TODO: put the end game scenarios together
         if game.checkmated:
             game_over = True
             draw_text(screen, ('Black won by checkmate' if game.white_to_move else 'White won by checkmate'))
-
         if game.stalemate:
             game_over = True
             draw_text(screen, 'Draw by stalemate')
+        if game.draw_by_IM:
+            game_over = True
+            draw_text(screen, 'Draw by insufficient material')
 
         clock.tick(MAX_FPS) # ticks the clock at FPS
         p.display.flip()

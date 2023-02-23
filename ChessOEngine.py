@@ -27,11 +27,18 @@ class Game:
         self.castle_piece_first_move = {'wK':math.inf, 'wQR':math.inf, 'wKR':math.inf, 
             'bK':math.inf, 'bQR':math.inf, 'bKR':math.inf}
 
+        # check how many pieces are still on the board for both sides
+        self.piece_remaining = {
+            'wR': 2, 'wN': 2, 'wQ': 1, 'wB':2, 'wP': 8,
+            'bR': 2, 'bN': 2, 'bQ': 1, 'bB':2, 'bP': 8
+        }
+
         self.white_king_pos = (7,4)
         self.black_king_pos = (0,4)
 
         self.checkmated = False
         self.stalemate = False
+        self.draw_by_IM = False
 
     def make_move(self, move):
         self.board[move.start_row][move.start_col] = '--'
@@ -40,6 +47,21 @@ class Game:
 
         self.move_log.append(move)
         self.white_to_move = not self.white_to_move
+
+        # Count remaining pieces
+        if move.piece_captured != '--':
+            self.piece_remaining[move.piece_captured] -= 1
+            num_piece_w, piece_w, num_piece_b, piece_b = 0, None, 0, None
+            for piece in self.piece_remaining:
+                if piece[0] == 'w':
+                    num_piece_w += self.piece_remaining[piece]
+                    piece_w = piece[1]
+                else:
+                    num_piece_b += self.piece_remaining[piece]
+                    piece_b = piece[1]
+            # Draw by insufficient material
+            if num_piece_w <= 1 and num_piece_b <= 1:
+                self.draw_by_IM = piece_w in ['N', 'B', None] and piece_b in ['N', 'B', None]
 
         # En Passant
         if move.piece_moved[1] == 'P' and move.end_col != move.start_col and move.piece_captured == '--':
@@ -83,10 +105,14 @@ class Game:
             self.board[move.end_row][move.end_col] = move.piece_captured
             self.board[move.start_row][move.start_col] = move.piece_moved
 
+            if move.piece_captured != '--':
+                self.piece_remaining[move.piece_captured] += 1
+
             # undo enpassant
             if move.is_enpassant:
                 captured_color = 'b' if move.piece_moved[0] == 'w' else 'w'
                 self.board[move.start_row][move.end_col] = captured_color + 'P'
+                self.piece_remaining[captured_color + 'P'] += 1
 
             # undo castling
             # update the king's pos if they moved
@@ -141,7 +167,6 @@ class Game:
 
         return moves
             
-
     def in_check(self):
         return self.sq_attacked(self.white_king_pos) if self.white_to_move else self.sq_attacked(self.black_king_pos)
         
