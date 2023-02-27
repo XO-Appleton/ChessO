@@ -82,10 +82,13 @@ class Game:
                 self.board[move.start_row][7] = '--'
                 self.board[move.start_row][move.end_col-1] = color + 'R'
                 self.castle_piece_first_move[color+'KR'] = min(self.castle_piece_first_move[color+'KR'], len(self.move_log))
+                move.is_castle = True
+                
             elif move.start_col - move.end_col == 2:
                 self.board[move.start_row][0] = '--'
                 self.board[move.start_row][move.end_col+1] = color + 'R'
                 self.castle_piece_first_move[color+'QR'] = min(self.castle_piece_first_move[color+'QR'], len(self.move_log))
+                move.is_castle = True
 
             # update the king's pos if they move
             if color == 'w':
@@ -320,6 +323,10 @@ class Move:
         self.piece_moved = board[self.start_row][self.start_col]
         self.piece_captured = board[self.end_row][self.end_col]
         self.is_enpassant = False
+        self.is_castle = False
+        self.is_check = False
+        self.is_checkmate = False
+        self.is_stalemate = False
 
     def __eq__(self, other):
         if isinstance(other, Move):
@@ -331,3 +338,36 @@ class Move:
     def get_rank_notation(self, r, c):
         return self.cols2files[c] + self.rows2ranks[r]
 
+    def __str__(self):
+        # Castling
+        if self.is_castle:
+            return 'O-O' if self.end_col == 6 else 'O-O-O'
+        
+        # Determine if there is a capture
+        capture_text = ('x' if self.piece_captured != '--' or self.is_enpassant else '')
+
+        # ending position text
+        end_pos = self.cols2files[self.end_col]+self.rows2ranks[self.end_row]
+
+        if self.piece_moved[1] == 'P': # Special notation for pawn moves
+            start_text = self.cols2files[self.start_col] if capture_text else ''
+            if self.piece_moved[0] == 'w' and self.end_row == 0 or self.piece_moved[0] == 'b' and self.end_row == 7:
+                promotion_text = '=Q'
+            else:
+                promotion_text = ''
+        else:
+            #TODO consider special cases where two of the same piece can move to the same square
+            start_text = self.piece_moved[1]
+            promotion_text = ''
+
+        #TODO finish the logic for detecting the status above
+        if self.is_check:
+            status_text = '+'
+        elif self.is_checkmate:
+            status_text = '#'
+        elif self.is_stalemate:
+            status_text = '$'
+        else:
+            status_text = ''
+
+        return start_text + capture_text + end_pos + promotion_text + status_text

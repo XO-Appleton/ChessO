@@ -6,9 +6,11 @@ import pygame as p
 import ChessOEngine
 import MoveFinder
 
-WIDTH = HEIGHT = 512
+BOARD_WIDTH = BOARD_HEIGHT = 512
+MOVE_LOG_WIDTH = 250
+MOVE_LOG_HEIGHT = BOARD_HEIGHT
 DIMENSION = 8
-SQ_SIZE = HEIGHT//DIMENSION
+SQ_SIZE = BOARD_HEIGHT//DIMENSION
 MAX_FPS = 15
 IMAGES = {}
 
@@ -25,13 +27,15 @@ def main():
     global colors
     colors = [p.Color('white'), p.Color('gray')]
 
-    screen = p.display.set_mode((WIDTH, HEIGHT))
+    screen = p.display.set_mode((BOARD_WIDTH + MOVE_LOG_WIDTH, BOARD_HEIGHT))
     clock = p.time.Clock()
     screen.fill(p.Color('white'))
     game = ChessOEngine.Game()
     load_images()
 
-    player1 = False # True if human playing white else False
+    move_log_font = p.font.SysFont('Arial', 14, False, False)
+
+    player1 = True # True if human playing white else False
     player2 = False # For black
 
     valid_moves = game.get_valid_moves()
@@ -56,7 +60,7 @@ def main():
                 location = p.mouse.get_pos() # (x,y) location of the mouse
                 col = location[0]//SQ_SIZE
                 row = location[1]//SQ_SIZE
-                if sq_selected == (row, col): #? Could be put together with other invalid movements
+                if sq_selected == (row, col) or col >= 8: #? Could be put together with other invalid movements
                     sq_selected = ()
                     player_clicks = []
                 else:
@@ -103,29 +107,53 @@ def main():
             move_made = animate = False
             valid_moves = game.get_valid_moves()
 
-        draw_game(screen,game,valid_moves, sq_selected)
+        draw_game(screen, game, valid_moves, sq_selected, move_log_font)
 
         # TODO: put the end game scenarios together
-        if game.checkmated:
+        if game.checkmated or game.stalemate or game.draw_by_IM:
             game_over = True
-            draw_text(screen, ('Black won by checkmate' if game.white_to_move else 'White won by checkmate'))
-        if game.stalemate:
-            game_over = True
-            draw_text(screen, 'Draw by stalemate')
-        if game.draw_by_IM:
-            game_over = True
-            draw_text(screen, 'Draw by insufficient material')
+            if game.checkmated:
+                text = 'Black won by checkmate' if game.white_to_move else 'White won by checkmate'
+            if game.stalemate:
+                text = 'Draw by stalemate'
+            if game.draw_by_IM:
+                text = 'Draw by insufficient material'
+            draw_end_game_text(screen, text)
 
         clock.tick(MAX_FPS) # ticks the clock at FPS
         p.display.flip()
 
-def draw_game(screen, game, valid_moves, sq_selected):
+def draw_game(screen, game, valid_moves, sq_selected, move_log_font):
     '''
     Responsible for all graphics of the current game
     '''
     draw_board(screen)
+    draw_move_log(screen, game, move_log_font)
     highlight_piece(screen, game, valid_moves, sq_selected)
     draw_pieces(screen, game.board)
+
+def draw_move_log(screen, game, font):
+    move_log_rect = p.Rect(BOARD_WIDTH, 0, MOVE_LOG_WIDTH, MOVE_LOG_HEIGHT)
+    p.draw.rect(screen, p.Color('black'), move_log_rect)
+    move_log = game.move_log
+    move_texts = []
+    for i in range(0, len(move_log), 2):
+        text = str(i//2+1) + '.' + str(move_log[i]) + ' '
+        if i+1 < len(move_log):
+            text += str(move_log[i+1])
+        move_texts.append(text)
+
+    padding = 5
+    line_spacing = 2
+    text_Y = padding
+
+    for i in range(len(move_texts)):
+        text = move_texts[i]
+        text_obj = font.render(text, True, p.Color('white'))
+        text_location = move_log_rect.move(padding, text_Y)
+        screen.blit(text_obj, text_location)
+        text_Y += text_obj.get_height() + line_spacing
+    
 
 def draw_board(screen):
     '''
@@ -171,10 +199,10 @@ def draw_pieces(screen, board):
             if piece != '--': # not empty square
                 screen.blit(IMAGES[piece], p.Rect(c*SQ_SIZE, r*SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
-def draw_text(screen, text):
+def draw_end_game_text(screen, text):
     font = p.font.SysFont('Helvitca', 32, True, True)
     text_obj = font.render(text, 0, p.Color('Gray'))
-    text_location = p.Rect(0, 0, WIDTH, HEIGHT).move(WIDTH/2 - text_obj.get_width()/2, HEIGHT/2 - text_obj.get_height()/2)
+    text_location = p.Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT).move(BOARD_WIDTH/2 - text_obj.get_width()/2, BOARD_HEIGHT/2 - text_obj.get_height()/2)
     screen.blit(text_obj, text_location)
     text_obj = font.render(text, 0, p.Color('Black'))
     screen.blit(text_obj, text_location.move(2,2))

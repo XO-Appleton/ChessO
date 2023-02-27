@@ -7,7 +7,7 @@ piece_value = {'K': 0, 'Q': 9, 'R': 5, 'B':3, 'N': 3, 'P':1}
 
 CHECKMATE = 1000
 STALEMATE = 0
-DEPTH = 2
+DEPTH = 3
 
 def find_best_move(game, valid_moves):
     '''
@@ -15,9 +15,10 @@ def find_best_move(game, valid_moves):
     '''
     global best_move
     best_move = None
+    turn_multiplier = 1 if game.white_to_move else -1
     random.shuffle(valid_moves)
 
-    print(minmax(game, valid_moves, DEPTH, game.white_to_move))
+    print(find_best_score(game, valid_moves, DEPTH,  -CHECKMATE, CHECKMATE, turn_multiplier))
 
     return best_move if best_move else random_move(valid_moves)
 
@@ -25,28 +26,33 @@ def random_move(valid_moves):
     # Return a random move that is valid
     return random.choice(valid_moves)
 
-def minmax(game, valid_moves, depth, white_to_move):
+def find_best_score(game, valid_moves, depth, alpha, beta, turn_multiplier):
     # Find the move that would result in the highest score for the current side after the number of depth
     global best_move
 
     # Score the game when reaching the depth limit
     if depth == 0:
-        return score_game(game)
+        return turn_multiplier * score_game(game)
 
-    score_multiplier = 1 if white_to_move else -1
     best_score = -CHECKMATE
 
     for move in valid_moves:
         game.make_move(move)
         next_moves = game.get_valid_moves()
-        score = minmax(game, next_moves, depth-1, not white_to_move)
+        score = -find_best_score(game, next_moves, depth-1, -beta, -alpha, -turn_multiplier)
         game.undo_move()
-
-        if score * score_multiplier > best_score:
-            best_score = score * score_multiplier
-            if depth == DEPTH:
+        if score > best_score:
+            best_score = score
+            if depth == DEPTH: # next move
                 best_move = move
-    return best_score * score_multiplier
+
+        # pruning
+        if best_score > alpha:
+            alpha = best_score
+        if alpha >= beta:
+            break
+
+    return best_score
 
 def score_game(game):
     if game.checkmated:
