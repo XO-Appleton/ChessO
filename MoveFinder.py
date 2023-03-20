@@ -9,7 +9,7 @@ CHECKMATE = 1000
 STALEMATE = 0
 DEPTH = 3
 
-def find_best_move(game, valid_moves):
+def find_best_move(game, valid_moves, rt_queue):
     '''
     Find the best move for the current game, return a random move if there is no move available
     '''
@@ -17,10 +17,9 @@ def find_best_move(game, valid_moves):
     best_move = None
     turn_multiplier = 1 if game.white_to_move else -1
     random.shuffle(valid_moves)
-
-    print(find_best_score(game, valid_moves, DEPTH,  -CHECKMATE, CHECKMATE, turn_multiplier))
-
-    return best_move if best_move else random_move(valid_moves)
+    find_best_score(game, valid_moves, DEPTH, -CHECKMATE, CHECKMATE, turn_multiplier)
+    
+    rt_queue.put(best_move if best_move else random_move(valid_moves))
 
 def random_move(valid_moves):
     # Return a random move that is valid

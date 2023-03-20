@@ -6,6 +6,8 @@ import pygame as p
 import ChessOEngine
 import MoveFinder
 
+from multiprocessing import Process, Queue
+
 BOARD_WIDTH = BOARD_HEIGHT = 512
 MOVE_LOG_WIDTH = 250
 MOVE_LOG_HEIGHT = BOARD_HEIGHT
@@ -45,6 +47,8 @@ def main():
 
     sq_selected = ()
     player_clicks = [] # two tuples tracking the start and end pos where user moved a piece
+    ai_thinking = False
+    find_move_process = None
 
     running = True
     while running:
@@ -56,7 +60,7 @@ def main():
                 running = False
 
             # mouse handler
-            elif e.type == p.MOUSEBUTTONDOWN and human_turn and not game_over:
+            elif e.type == p.MOUSEBUTTONDOWN and not game_over:
                 location = p.mouse.get_pos() # (x,y) location of the mouse
                 col = location[0]//SQ_SIZE
                 row = location[1]//SQ_SIZE
@@ -69,8 +73,7 @@ def main():
 
                 if len(player_clicks) == 2: # After the second click
                     move = ChessOEngine.Move(player_clicks[0], player_clicks[1], game.board)
-                    print(move.get_chess_notation(),move in valid_moves, game.white_to_move)
-                    if move in valid_moves:
+                    if move in valid_moves and human_turn:
                         game.make_move(move)
                         move_made = animate = True
                         sq_selected = ()
@@ -81,6 +84,9 @@ def main():
             # key handler
             elif e.type == p.KEYDOWN:
                 if e.key == p.K_z: # Undo a move by pressing 'z'
+                    if ai_thinking: 
+                        find_move_process.terminate()
+                        ai_thinking = False
                     game.undo_move()
                     game_over = False
                     move_made = True
@@ -97,9 +103,18 @@ def main():
                     player_clicks = []
 
         if not human_turn and not game_over:
-            move = MoveFinder.find_best_move(game, valid_moves)
-            game.make_move(move)
-            move_made = animate = True
+            if not ai_thinking:
+                print('AI thinking...')
+                rt_queue = Queue()
+                find_move_process = Process(target=MoveFinder.find_best_move, args=(game, valid_moves, rt_queue))
+                find_move_process.start()
+                ai_thinking = True
+            
+            if not find_move_process.is_alive():
+                print('AI done thinking.')
+                game.make_move(rt_queue.get())
+                ai_thinking = False
+                move_made = animate = True
 
         if move_made:
             if animate:
