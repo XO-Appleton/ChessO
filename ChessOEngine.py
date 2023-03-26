@@ -1,6 +1,7 @@
 '''
 This is the game engine for ChessO which initiates the chess game as well as monitoring the game.
 '''
+import math
 
 class Game:
     '''Stores the board and moves of the current game'''
@@ -22,27 +23,78 @@ class Game:
         self.white_to_move = True
         self.move_log = [] # list of Moves
 
+        # order of the first move that disables castling of the pieces
+        self.castle_piece_first_move = {'wK':math.inf, 'wQR':math.inf, 'wKR':math.inf, 
+            'bK':math.inf, 'bQR':math.inf, 'bKR':math.inf}
+
+        # check how many pieces are still on the board for both sides
+        self.piece_remaining = {
+            'wR': 2, 'wN': 2, 'wQ': 1, 'wB':2, 'wP': 8,
+            'bR': 2, 'bN': 2, 'bQ': 1, 'bB':2, 'bP': 8
+        }
+
         self.white_king_pos = (7,4)
         self.black_king_pos = (0,4)
 
         self.checkmated = False
         self.stalemate = False
+        self.draw_by_IM = False
 
     def make_move(self, move):
         self.board[move.start_row][move.start_col] = '--'
         self.board[move.end_row][move.end_col] = move.piece_moved
+        color = move.piece_moved[0]
+
+        self.move_log.append(move)
+        self.white_to_move = not self.white_to_move
+
+        # Count remaining pieces
+        if move.piece_captured != '--':
+            self.piece_remaining[move.piece_captured] -= 1
+            num_piece_w, piece_w, num_piece_b, piece_b = 0, None, 0, None
+            for piece in self.piece_remaining:
+                if piece[0] == 'w':
+                    num_piece_w += self.piece_remaining[piece]
+                    piece_w = piece[1]
+                else:
+                    num_piece_b += self.piece_remaining[piece]
+                    piece_b = piece[1]
+            # Draw by insufficient material
+            if num_piece_w <= 1 and num_piece_b <= 1:
+                self.draw_by_IM = piece_w in ['N', 'B', None] and piece_b in ['N', 'B', None]
+
         # En Passant
         if move.piece_moved[1] == 'P' and move.end_col != move.start_col and move.piece_captured == '--':
             self.board[move.start_row][move.end_col] = '--'
             move.is_enpassant = True
 
-        self.move_log.append(move)
-        self.white_to_move = not self.white_to_move
-        # update the king's pos if they move
-        if move.piece_moved == 'wK':
-            self.white_king_pos = (move.end_row, move.end_col)
-        elif move.piece_moved == 'bK':
-            self.black_king_pos = (move.end_row, move.end_col)
+        # Track rook first move timing
+        if move.piece_moved[1] == 'R':
+            if move.start_col == 0:
+                self.castle_piece_first_move[color+'QR'] = min(self.castle_piece_first_move[color+'QR'], len(self.move_log))
+            elif move.start_col == 7:
+                self.castle_piece_first_move[color+'KR'] = min(self.castle_piece_first_move[color+'KR'], len(self.move_log))
+
+        if move.piece_moved[1] == 'K':
+            self.castle_piece_first_move[color+'K'] = min(self.castle_piece_first_move[color+'K'], len(self.move_log))
+            # Castles
+            if move.end_col - move.start_col == 2:
+                self.board[move.start_row][7] = '--'
+                self.board[move.start_row][move.end_col-1] = color + 'R'
+                self.castle_piece_first_move[color+'KR'] = min(self.castle_piece_first_move[color+'KR'], len(self.move_log))
+                move.is_castle = True
+                
+            elif move.start_col - move.end_col == 2:
+                self.board[move.start_row][0] = '--'
+                self.board[move.start_row][move.end_col+1] = color + 'R'
+                self.castle_piece_first_move[color+'QR'] = min(self.castle_piece_first_move[color+'QR'], len(self.move_log))
+                move.is_castle = True
+
+            # update the king's pos if they move
+            if color == 'w':
+                self.white_king_pos = (move.end_row, move.end_col)
+            else:
+                self.black_king_pos = (move.end_row, move.end_col)
 
         # Pawn Promotion
         if move.piece_moved == 'wP' and move.end_row == 0:
@@ -56,17 +108,43 @@ class Game:
             self.board[move.end_row][move.end_col] = move.piece_captured
             self.board[move.start_row][move.start_col] = move.piece_moved
 
+            if move.piece_captured != '--':
+                self.piece_remaining[move.piece_captured] += 1
+
             # undo enpassant
             if move.is_enpassant:
                 captured_color = 'b' if move.piece_moved[0] == 'w' else 'w'
                 self.board[move.start_row][move.end_col] = captured_color + 'P'
+                self.piece_remaining[captured_color + 'P'] += 1
 
-            self.white_to_move = not self.white_to_move
+            # undo castling
             # update the king's pos if they moved
             if move.piece_moved == 'wK':
+                if move.start_col - move.end_col == 2:
+                    self.board[move.end_row][move.end_col+1] = '--'
+                    self.board[move.end_row][0] = 'wR'
+                elif move.start_col - move.end_col == -2:
+                    self.board[move.end_row][move.end_col-1] = '--'
+                    self.board[move.end_row][7] = 'wR'
                 self.white_king_pos = (move.start_row, move.start_col)
             elif move.piece_moved == 'bK':
+                if move.start_col - move.end_col == 2:
+                    self.board[move.end_row][move.end_col+1] = '--'
+                    self.board[move.end_row][0] = 'bR'
+                elif move.start_col - move.end_col == -2:
+                    self.board[move.end_row][move.end_col-1] = '--'
+                    self.board[move.end_row][7] = 'bR'
                 self.black_king_pos = (move.start_row, move.start_col)
+            
+            # update first move timing of the castling pieces
+            for k,v in self.castle_piece_first_move.items():
+                if len(self.move_log) < v:
+                    self.castle_piece_first_move[k] = math.inf
+            self.white_to_move = not self.white_to_move
+
+            # Reset checkmate and stalemate status
+            self.checkmated = False
+            self.stalemate = False
 
     def get_valid_moves(self):
         # return all moves that does not put the king in check
@@ -81,13 +159,17 @@ class Game:
             self.undo_move()
             self.white_to_move = not self.white_to_move
 
+        king_pos = self.white_king_pos if self.white_to_move else self.black_king_pos
+        castle_moves = self.get_castle_moves(king_pos[0], king_pos[1])
+
+        moves = moves[:j] + castle_moves
+
         if not moves:
             if self.in_check(): self.checkmated = True
             else: self.stalemate = True
 
-        return moves[:j]
+        return moves
             
-
     def in_check(self):
         return self.sq_attacked(self.white_king_pos) if self.white_to_move else self.sq_attacked(self.black_king_pos)
         
@@ -194,6 +276,37 @@ class Game:
                     if self.board[r+i][c+j][0] != self.board[r][c][0]:
                         moves.append(Move((r,c),(r+i,c+j),self.board))
 
+    def get_castle_moves(self, r, c):
+        castle_moves = []
+        # check if castling is available queen side or king side
+        queen_side = king_side = True
+        color = self.board[r][c][0]
+
+        # Both king or rook must have not moved
+        if len(self.move_log) < self.castle_piece_first_move[color + 'K'] and not self.in_check():
+            # Queen side
+            if len(self.move_log) < self.castle_piece_first_move[color + 'QR']:
+                # No pieces between king and rook and the sqares the king passes and lands on must not be under attack
+                for i in range(1,4):
+                    if self.board[r][c-i] != '--' or i < 3 and self.sq_attacked((r, c-i)): 
+                        queen_side = False
+                        break
+            else: queen_side = False
+            # King side
+            if len(self.move_log) < self.castle_piece_first_move[color + 'KR']:
+                # No pieces between king and rook and the sqares the king passes and lands on must not be under attack
+                for i in range(1,3):
+                    if self.board[r][c+i] != '--' or self.sq_attacked((r, c+i)): 
+                        king_side = False
+                        break
+            else: king_side = False
+        else:
+            queen_side = king_side = False
+        if queen_side: castle_moves.append(Move((r,c), (r, c-2), self.board))
+        if king_side: castle_moves.append(Move((r,c), (r, c+2), self.board))
+        #print(queen_side, king_side)
+        return castle_moves
+            
 class Move:
     '''Stores the information about a single move'''
 
@@ -210,6 +323,10 @@ class Move:
         self.piece_moved = board[self.start_row][self.start_col]
         self.piece_captured = board[self.end_row][self.end_col]
         self.is_enpassant = False
+        self.is_castle = False
+        self.is_check = False
+        self.is_checkmate = False
+        self.is_stalemate = False
 
     def __eq__(self, other):
         if isinstance(other, Move):
@@ -220,7 +337,37 @@ class Move:
     
     def get_rank_notation(self, r, c):
         return self.cols2files[c] + self.rows2ranks[r]
-    
-    
 
+    def __str__(self):
+        # Castling
+        if self.is_castle:
+            return 'O-O' if self.end_col == 6 else 'O-O-O'
+        
+        # Determine if there is a capture
+        capture_text = ('x' if self.piece_captured != '--' or self.is_enpassant else '')
 
+        # ending position text
+        end_pos = self.cols2files[self.end_col]+self.rows2ranks[self.end_row]
+
+        if self.piece_moved[1] == 'P': # Special notation for pawn moves
+            start_text = self.cols2files[self.start_col] if capture_text else ''
+            if self.piece_moved[0] == 'w' and self.end_row == 0 or self.piece_moved[0] == 'b' and self.end_row == 7:
+                promotion_text = '=Q'
+            else:
+                promotion_text = ''
+        else:
+            #TODO consider special cases where two of the same piece can move to the same square
+            start_text = self.piece_moved[1]
+            promotion_text = ''
+
+        #TODO finish the logic for detecting the status above
+        if self.is_check:
+            status_text = '+'
+        elif self.is_checkmate:
+            status_text = '#'
+        elif self.is_stalemate:
+            status_text = '$'
+        else:
+            status_text = ''
+
+        return start_text + capture_text + end_pos + promotion_text + status_text
